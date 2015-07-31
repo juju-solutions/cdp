@@ -1,0 +1,14 @@
+aws-access-key: <MASTER-AWS-KEY>
+aws-secret-access-key: <MASTER-AWS-SECRET>
+policy-arn: <POLICY-ARN>
+# default-path: <MUST BEGIN AND END WITH A '/'>
+regions:
+ - us-west-2
+ - us-west-1
+ - us-east-1
+ - eu-west-1
+ - eu-central-1
+ - ap-southeast-1
+ - ap-southeast-2
+ - ap-northeast-1
+ - sa-east-1
