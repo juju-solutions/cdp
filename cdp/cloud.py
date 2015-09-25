@@ -111,10 +111,20 @@ def instances(regions=None):
         ec2 = get_resource('ec2', r)
         for i in ec2.instances.all():
             i.name = None
+            i.units = ""
+            i.juju_env = ""
+            i.bootstrap = False
             if i.tags:
                 for t in i.tags:
                     if t['Key'] == 'Name':
                         i.name = t['Value']
+                    if t['Key'] == 'juju-env-uuid':
+                        i.juju_env = t['Value'].split('-')[0]
+                    if t['Key'] == 'juju-units-deployed':
+                        i.units = t['Value']
+                    if t['Key'] == 'juju-is-state':
+                        i.bootstrap = True
+
             instances[r].append(i)
 
     return instances

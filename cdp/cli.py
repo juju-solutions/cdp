@@ -1,4 +1,6 @@
 import click
+import humanize
+
 from . import cloud
 from . import helpers
 from . import errors
@@ -20,11 +22,16 @@ def instance():
 @click.option('--regions', '-r', default=None)
 def instance_list(regions):
     all_instances = cloud.instances()
-    out = "{0:20s} {1:11s} {2:15s} {3:10s} {4:8s}"
-    click.secho(out.format('NAME', 'ID', 'REGION', 'STATE', 'TYPE'), bold=True)
+    out = "{0:28s} {1:11s} {2:15s} {3:10s} {4:10s} {5:14s} {6:8s} {8:1s} {7}"
+    click.secho(out.format('NAME', 'ID', 'REGION', 'STATE', 'TYPE', 'AGE',
+                           'ENV', 'UNITS', ''),
+                bold=True)
     for r, instances in all_instances.items():
         for i in instances:
-            click.echo(out.format(i.name or '', i.id, r, i.state['Name'], i.instance_type))
+            age = humanize.naturaltime(i.launch_time.replace(tzinfo=None))
+            click.echo(out.format(i.name or '', i.id, r, i.state['Name'],
+                                  i.instance_type, age, i.juju_env,
+                                  i.units, '*' if i.bootstrap else ''))
 
 @instance.command('reap')
 @click.option('--regions', '-r', default=None)

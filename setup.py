@@ -5,6 +5,7 @@ install_requires = [
     'charmworldlib',
     'PyYAML',
     'click',
+    'humanize',
 ]
 
 tests_require = [
