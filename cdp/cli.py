@@ -40,6 +40,27 @@ def instance_reap():
     pass
 
 
+@instance.command('kill')
+@click.argument('instance_ids', required=True, nargs=-1)
+@click.option('--yes', '-y', default=False, is_flag=True)
+def instance_kill(instance_ids, yes):
+    if not yes:
+        click.echo('Continue? [y|N] ', nl=False)
+        c = click.getchar()
+        click.echo()
+        if c.lower() != 'y':
+            return
+
+    instances = cloud.instances()
+    for r, inst in instances.items():
+        for i in inst:
+            if i.id in instance_ids:
+                i.terminate()
+                click.echo('{1:28s} {0:11s} terminated from {2}'.format(i.id,
+                                                                        i.name,
+                                                                        r))
+
+
 @main.group()
 def user():
     pass
