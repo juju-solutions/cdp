@@ -24,7 +24,7 @@ def instance():
 @click.option('--regions', '-r', default=None)
 def instance_list(regions):
     all_instances = cloud.instances()
-    out = "{0:28s} {1:11s} {2:15s} {3:10s} {4:10s} {5:14s} {6:8s} {8:1s} {7}"
+    out = "{0:30s} {1:11s} {2:15s} {3:10s} {4:10s} {5:14s} {6:8s} {8:1s} {7}"
     click.secho(out.format('NAME', 'ID', 'REGION', 'STATE', 'TYPE', 'AGE',
                            'ENV', 'UNITS', ''),
                 bold=True)
@@ -35,8 +35,9 @@ def instance_list(regions):
             launch_time = i.launch_time.astimezone(local_tz)
             age = humanize.naturaltime(launch_time.replace(tzinfo=None))
             click.echo(out.format(i.name or '', i.id, r, i.state['Name'],
-                                  i.instance_type, age, i.juju_env,
-                                  i.units, '*' if i.bootstrap else ''))
+                                  i.instance_type, age,
+                                  i.juju_env.split('-')[0], i.units,
+                                  '*' if i.bootstrap else ''))
 
 @instance.command('reap')
 @click.option('--regions', '-r', default=None)
