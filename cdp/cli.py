@@ -176,9 +176,21 @@ def user_keys_list(names, prefix, quiet):
 
 
 @user_keys.command('refresh')
-@click.argument('name')
-def user_keys_refresh(name):
-    pass
+@click.argument('names', required=False, nargs=-1)
+def user_keys_refresh(names):
+    if not names:
+        click.secho('Need a User ID or Name to generate new keys', err=True,
+                    fg='red')
+        return
+
+    for name in names:
+        try:
+            cloud.delete_keys(name)
+            key = cloud.create_key_pair(name)
+        except errors.exceptions.NoSuchEntity:
+            click.secho('User %s does not exist' % name, err=True, fg='red')
+        else:
+            click.echo("{0}: {1} {2}".format(name, key.id, key.secret))
 
 
 @user_keys.command('delete')
