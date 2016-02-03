@@ -115,13 +115,26 @@ def user_del(name, yes):
 
 
 @user.group('keys', invoke_without_command=True)
-@click.argument('name', required=False, default=None)
+@click.argument('names', required=False, default=None, nargs=-1)
 @click.option('--prefix', '-p', default=config.get('default-path', '/'))
 @click.option('--quiet', '-q', is_flag=True)
 @click.pass_context
-def user_keys(ctx, name, prefix, quiet):
+def user_keys(ctx, names, prefix, quiet):
     """Show or refrhesh a users keys"""
     # Not sure if we even need this.
+    if not names:
+        names = ['list']
+
+    if names[0] == 'refresh':
+        return ctx.invoke(user_keys_refresh, names=names[1:])
+    else:
+        if names[0] == 'list':
+            names = names[1:]
+
+        return ctx.invoke(user_keys_list, names=names, prefix=prefix,
+                          quiet=quiet)
+
+
     if ctx.invoked_subcommand is None:
         if name:
             users = [cloud.get_user(name)]
