@@ -29,7 +29,7 @@ def instance_list(regions):
     for r, instances in all_instances.items():
         for i in instances:
             age = humanize.naturaltime(i.launch_time.replace(tzinfo=None))
-            click.echo(out.format(i.name or '', i.id, r, i.state['Name'],
+            click.echo(out.format(i.name[:27] or '', i.id, r, i.state['Name'],
                                   i.instance_type, age, i.juju_env,
                                   i.units, '*' if i.bootstrap else ''))
 
@@ -87,7 +87,7 @@ def user_add(name, prefix, policy):
     """Create new IAM user with prefix (path) and policy"""
 
     user, key = cloud.create_account(name, prefix, policy)
-    click.echo("{0}: {1} {2}".format(name, key.id, key.secret))
+    click.echo("user: {0}\naccess: {1}\nsecret: {2}".format(name, key.id, key.secret))
 
 
 @user.command('create')
