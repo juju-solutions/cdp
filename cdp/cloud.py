@@ -1,4 +1,6 @@
 import boto3
+import datetime
+import operator
 
 from . import errors
 from .helpers import (
@@ -119,12 +121,13 @@ def instances(regions=None):
                     if t['Key'] == 'Name':
                         i.name = t['Value']
                     if t['Key'] == 'juju-env-uuid':
-                        i.juju_env = t['Value'].split('-')[0]
+                        i.juju_env = t['Value']
                     if t['Key'] == 'juju-units-deployed':
                         i.units = t['Value']
                     if t['Key'] == 'juju-is-state':
                         i.bootstrap = True
+            i.sort_name = '%s-%s' % (i.juju_env, (i.launch_time.replace(tzinfo=None) - datetime.datetime(1970,1,1)).total_seconds())
 
             instances[r].append(i)
-
+        instances[r].sort(key=operator.attrgetter('sort_name'))
     return instances
