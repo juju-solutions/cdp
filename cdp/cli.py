@@ -1,6 +1,8 @@
 import click
 import humanize
 
+from dateutil import tz
+
 from . import cloud
 from . import helpers
 from . import errors
@@ -22,16 +24,21 @@ def instance():
 @click.option('--regions', '-r', default=None)
 def instance_list(regions):
     all_instances = cloud.instances()
-    out = "{0:28s} {1:11s} {2:15s} {3:10s} {4:10s} {5:14s} {6:8s} {8:1s} {7}"
+    out = "{0:30s} {1:11s} {2:15s} {3:10s} {4:10s} {5:14s} {6:8s} {8:1s} {7}"
     click.secho(out.format('NAME', 'ID', 'REGION', 'STATE', 'TYPE', 'AGE',
                            'ENV', 'UNITS', ''),
                 bold=True)
     for r, instances in all_instances.items():
         for i in instances:
-            age = humanize.naturaltime(i.launch_time.replace(tzinfo=None))
+            # This entire tz thing is a bunch of shit
+            local_tz = tz.tzlocal()
+            launch_time = i.launch_time.astimezone(local_tz)
+            age = humanize.naturaltime(launch_time.replace(tzinfo=None))
             click.echo(out.format(i.name[:27] or '', i.id, r, i.state['Name'],
-                                  i.instance_type, age, i.juju_env,
-                                  i.units, '*' if i.bootstrap else ''))
+                                  i.instance_type, age,
+                                  i.juju_env.split('-')[0], i.units,
+                                  '*' if i.bootstrap else ''))
+
 
 @instance.command('reap')
 @click.option('--regions', '-r', default=None)
@@ -109,13 +116,26 @@ def user_del(name, yes):
 
 
 @user.group('keys', invoke_without_command=True)
-@click.argument('name', required=False, default=None)
+@click.argument('names', required=False, default=None, nargs=-1)
 @click.option('--prefix', '-p', default=config.get('default-path', '/'))
 @click.option('--quiet', '-q', is_flag=True)
 @click.pass_context
-def user_keys(ctx, name, prefix, quiet):
+def user_keys(ctx, names, prefix, quiet):
     """Show or refrhesh a users keys"""
     # Not sure if we even need this.
+    if not names:
+        names = ['list']
+
+    if names[0] == 'refresh':
+        return ctx.invoke(user_keys_refresh, names=names[1:])
+    else:
+        if names[0] == 'list':
+            names = names[1:]
+
+        return ctx.invoke(user_keys_list, names=names, prefix=prefix,
+                          quiet=quiet)
+
+
     if ctx.invoked_subcommand is None:
         if name:
             users = [cloud.get_user(name)]
@@ -133,10 +153,45 @@ def user_keys(ctx, name, prefix, quiet):
                 click.echo(out.format(u.user_id, u.name, k.id, 'REDACTED'))
 
 
+@user_keys.command('list')
+@click.argument('names', required=False, default=None, nargs=-1)
+@click.option('--prefix', '-p', default=config.get('default-path', '/'))
+@click.option('--quiet', '-q', is_flag=True)
+def user_keys_list(names, prefix, quiet):
+    if names:
+        users = []
+        for name in names:
+            users.append(cloud.get_user(name))
+    else:
+        users = cloud.users(prefix)
+    out = "{0:22s} {1:20s} {2:20s} {3:50s}"
+
+    if not quiet:
+        click.echo(out.format('User ID', 'Name', 'Access Key', 'Secret'))
+    for u in users:
+        keys = [k for k in u.access_keys.all()]
+        if len(keys) < 1:
+            click.echo(out.format(u.user_id, u.name, '', ''))
+        for k in keys:
+            click.echo(out.format(u.user_id, u.name, k.id, 'REDACTED'))
+
+
 @user_keys.command('refresh')
-@click.argument('name')
-def user_keys_refresh(name):
-    pass
+@click.argument('names', required=False, nargs=-1)
+def user_keys_refresh(names):
+    if not names:
+        click.secho('Need a User ID or Name to generate new keys', err=True,
+                    fg='red')
+        return
+
+    for name in names:
+        try:
+            cloud.delete_keys(name)
+            key = cloud.create_key_pair(name)
+        except errors.exceptions.NoSuchEntity:
+            click.secho('User %s does not exist' % name, err=True, fg='red')
+        else:
+            click.echo("{0}: {1} {2}".format(name, key.id, key.secret))
 
 
 @user_keys.command('delete')
