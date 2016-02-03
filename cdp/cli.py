@@ -1,6 +1,8 @@
 import click
 import humanize
 
+from dateutil import tz
+
 from . import cloud
 from . import helpers
 from . import errors
@@ -28,7 +30,10 @@ def instance_list(regions):
                 bold=True)
     for r, instances in all_instances.items():
         for i in instances:
-            age = humanize.naturaltime(i.launch_time.replace(tzinfo=None))
+            # This entire tz thing is a bunch of shit
+            local_tz = tz.tzlocal()
+            launch_time = i.launch_time.astimezone(local_tz)
+            age = humanize.naturaltime(launch_time.replace(tzinfo=None))
             click.echo(out.format(i.name or '', i.id, r, i.state['Name'],
                                   i.instance_type, age, i.juju_env,
                                   i.units, '*' if i.bootstrap else ''))
