@@ -152,6 +152,29 @@ def user_keys(ctx, names, prefix, quiet):
                 click.echo(out.format(u.user_id, u.name, k.id, 'REDACTED'))
 
 
+@user_keys.command('list')
+@click.argument('names', required=False, default=None, nargs=-1)
+@click.option('--prefix', '-p', default=config.get('default-path', '/'))
+@click.option('--quiet', '-q', is_flag=True)
+def user_keys_list(names, prefix, quiet):
+    if names:
+        users = []
+        for name in names:
+            users.append(cloud.get_user(name))
+    else:
+        users = cloud.users(prefix)
+    out = "{0:22s} {1:20s} {2:20s} {3:50s}"
+
+    if not quiet:
+        click.echo(out.format('User ID', 'Name', 'Access Key', 'Secret'))
+    for u in users:
+        keys = [k for k in u.access_keys.all()]
+        if len(keys) < 1:
+            click.echo(out.format(u.user_id, u.name, '', ''))
+        for k in keys:
+            click.echo(out.format(u.user_id, u.name, k.id, 'REDACTED'))
+
+
 @user_keys.command('refresh')
 @click.argument('name')
 def user_keys_refresh(name):
