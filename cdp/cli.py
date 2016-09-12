@@ -34,6 +34,7 @@ def instance_list(regions):
             local_tz = tz.tzlocal()
             launch_time = i.launch_time.astimezone(local_tz)
             age = humanize.naturaltime(launch_time.replace(tzinfo=None))
+            i.name = i.name or ''
             click.echo(out.format(i.name[:27] or '', i.id, r, i.state['Name'],
                                   i.instance_type, age,
                                   i.juju_env.split('-')[0], i.units,
