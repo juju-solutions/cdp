@@ -20,13 +20,13 @@ def instance():
     pass
 
 
-@instance.command('list')
+@main.command('instances')
 @click.option('--regions', '-r', default=None)
 def instance_list(regions):
     all_instances = cloud.instances()
-    out = "{0:30s} {1:11s} {2:15s} {3:10s} {4:10s} {5:14s} {6:8s} {8:1s} {7}"
-    click.secho(out.format('NAME', 'ID', 'REGION', 'STATE', 'TYPE', 'AGE',
-                           'ENV', 'UNITS', ''),
+    out = "{9:8s} {8:1s} {0:30s} {1:21s} {2:15s} {3:10s} {4:10s} {5:14s} {6:8s} {7}"
+    click.secho(out.format('NAME', 'ID', 'REGION', 'STATE',
+                           'TYPE', 'AGE', 'MODEL', 'UNITS', '', 'CNTRLR'),
                 bold=True)
     for r, instances in all_instances.items():
         for i in instances:
@@ -37,8 +37,8 @@ def instance_list(regions):
             i.name = i.name or ''
             click.echo(out.format(i.name[:27] or '', i.id, r, i.state['Name'],
                                   i.instance_type, age,
-                                  i.juju_env.split('-')[0], i.units,
-                                  '*' if i.bootstrap else ''))
+                                  i.model, i.units,
+                                  '*' if i.is_controller else '', i.controller))
 
 
 @instance.command('reap')
@@ -64,9 +64,66 @@ def instance_kill(instance_ids, yes):
         for i in inst:
             if i.id in instance_ids:
                 i.terminate()
-                click.echo('{1:28s} {0:11s} terminated from {2}'.format(i.id,
-                                                                        i.name,
-                                                                        r))
+                msg = '{1:28s} {0:11s} terminated from {2}'
+                click.echo(msg.format(i.id, i.name, r))
+
+
+@main.command('kill-model')
+@click.argument('model_ids', required=True, nargs=-1)
+@click.option('--yes', '-y', default=False, is_flag=True)
+def model_kill(model_ids, yes):
+    if not yes:
+        click.echo('Continue? [y|N] ', nl=False)
+        c = click.getchar()
+        click.echo()
+        if c.lower() != 'y':
+            return
+
+    instances = cloud.instances()
+    for region, inst in instances.items():
+        for i in inst:
+            if i.model in model_ids:
+                i.terminate()
+                msg = '{1:28s} {0:21s} {3} terminated from {2}'
+                click.echo(msg.format(i.id, i.name, region, i.model))
+
+
+@main.command('kill-controller')
+@click.argument('controller_ids', required=True, nargs=-1)
+@click.option('--yes', '-y', default=False, is_flag=True)
+def model_kill(controller_ids, yes):
+    if not yes:
+        click.echo('Continue? [y|N] ', nl=False)
+        c = click.getchar()
+        click.echo()
+        if c.lower() != 'y':
+            return
+
+    instances = cloud.instances()
+    for region, inst in instances.items():
+        for i in inst:
+            if i.controller in controller_ids:
+                i.terminate()
+                msg = '{1:28s} {0:21s} {3} terminated from {2}'
+                click.echo(msg.format(i.id, i.name, region, i.model))
+
+
+@main.command('clean-groups')
+@click.option('--yes', '-y', default=False, is_flag=True)
+def group_clean(yes):
+    if not yes:
+        click.echo('Continue? [y|N] ', nl=False)
+        c = click.getchar()
+        click.echo()
+        if c.lower() != 'y':
+            return
+
+    instances = cloud.groups()
+    for region, inst in instances.items():
+        for i in inst:
+            click.echo('{0}: {1} '.format(i.id, i.description), nl=False)
+            msg = cloud.delete_group(i)
+            click.echo('({0})'.format(msg))
 
 
 @main.group()
@@ -192,7 +249,7 @@ def user_keys_refresh(names):
         except errors.exceptions.NoSuchEntity:
             click.secho('User %s does not exist' % name, err=True, fg='red')
         else:
-            click.echo("{0}: {1} {2}".format(name, key.id, key.secret))
+            click.echo('user: {0}\naccess: {1}\nsecret: {2}'.format(name, key.id, key.secret))
 
 
 @user_keys.command('delete')

@@ -1,4 +1,5 @@
 import boto3
+import botocore
 import datetime
 import operator
 
@@ -81,6 +82,16 @@ def delete_user(user):
     user.delete()
 
 
+def delete_group(group):
+    try:
+        group.delete()
+    except botocore.exceptions.ClientError as e:
+        if e.response['Error']['Code'] in ('DependencyViolation', 'CannotDelete'):
+            return e.response['Error']['Message']
+        raise
+    return 'deleted'
+
+
 def users(path='/'):
     # list_users doesn't exist in resource, but we need it and resource
     iam = get_resource('iam')
@@ -99,6 +110,23 @@ def get_instance(name):
     pass
 
 
+def groups(regions=None):
+    if type(regions) == str:
+        regions = [regions]
+
+    if not regions:
+        cfg = config()
+        regions = cfg['regions']
+
+    groups = {}
+    for r in regions:
+        groups[r] = []
+        ec2 = get_resource('ec2', r)
+        for i in ec2.security_groups.filter(Filters=[{'Name':'description', 'Values':['juju group']}]):
+            groups[r].append(i)
+    return groups
+
+
 def instances(regions=None):
     if type(regions) == str:
         regions = [regions]
@@ -115,20 +143,28 @@ def instances(regions=None):
             i.name = None
             i.units = ""
             i.juju_env = ""
-            i.bootstrap = False
+            i.controller_uuid = "nil"
+            i.controller = 'nil'
+            i.model_uuid = 'nil'
+            i.model = 'nil'
+            i.is_controller = False
             if i.tags:
                 for t in i.tags:
                     if t['Key'] == 'Name':
                         i.name = t['Value']
-                    if t['Key'] == 'juju-env-uuid':
+                    if t['Key'] in ('juju-env-uuid', 'juju-model-uuid'):
                         i.juju_env = t['Value']
-                    if t['Key'] == 'juju-model-uuid':
-                        i.juju_env = t['Value']
+                        i.model_uuid = t['Value']
+                        i.model = t['Value'].split('-')[0]
+                    if t['Key'] == 'juju-controller-uuid':
+                        i.controller_uuid = t['Value']
+                        i.controller = t['Value'].split('-')[0]
                     if t['Key'] == 'juju-units-deployed':
                         i.units = t['Value']
-                    if t['Key'] == 'juju-is-state':
+                    if t['Key'] in ('juju-is-state', 'juju-is-controller'):
                         i.bootstrap = True
-            i.sort_name = '%s-%s' % (i.juju_env, (i.launch_time.replace(tzinfo=None) - datetime.datetime(1970,1,1)).total_seconds())
+                        i.is_controller = True
+            i.sort_name = '%s-%s-%s' % (i.controller_uuid, i.juju_env, (i.launch_time.replace(tzinfo=None) - datetime.datetime(1970,1,1)).total_seconds())
 
             instances[r].append(i)
         instances[r].sort(key=operator.attrgetter('sort_name'))
